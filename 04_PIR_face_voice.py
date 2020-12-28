@@ -18,7 +18,7 @@ pygame.mixer.init()
 
 #ตั้งค่าการเลือกใช้ไมโครโฟน ดูลำดับ 0, 1 ได้โดยการรัน Scan_Divice.py 
 r = sr.Recognizer()
-speech = sr.Microphone(device_index = 1)         
+speech = sr.Microphone(device_index = 2)         
 
 recognizer = cv2.face.LBPHFaceRecognizer_create()
 #เลือกไฟล์ที่ทำการ train เข้ามาเพื่อใช้ตรวจสอบใบหน้า 
@@ -162,8 +162,40 @@ print('\tVoice command on list ==>' ,Voice_command_on)
 print('\tVoice command off list ==>' ,Voice_command_off)
 print('\n\n')
 
+Pre_Voice_command_on = Voice_command_on
+Pre_Voice_command_off = Voice_command_off
+
 while 1:
     if GPIO.input(PIR) == 0 :
+        # รับค่าคำสั่งเสียงจาก firebase
+        command_on = firebase.get('/voice command','command on')
+        command_off = firebase.get('/voice command','command off')
+
+        Voice_command_on = []
+        Voice_command_off = []
+
+        j = 0
+        for i in command_on:
+            j += 1
+            indexOn =  'relay' + str(j)
+            Voice_command_on.append(command_on[indexOn])
+            
+        j = 0
+        for i in command_off:
+            j += 1
+            indexOff =  'relay' + str(j)
+            Voice_command_off.append(command_off[indexOff])
+
+        if Pre_Voice_command_on != Voice_command_on :
+            print('\n\n')
+            print('\tเปลี่ยนคำสั่งเสียง การเปิด เป็น ==>' ,Voice_command_on)
+        if Pre_Voice_command_off != Voice_command_off :
+            print('\tเปลี่ยนคำสั่งเสียง การปิด เป็น ==>' ,Voice_command_off)       
+            print('\n\n')
+
+        Pre_Voice_command_on = Voice_command_on
+        Pre_Voice_command_off = Voice_command_off
+        
         with speech as source:
             GPIO.output(listenStatus, 1)
             print("\n\tsay something!…")
@@ -187,13 +219,13 @@ while 1:
                 speak(recog +'เรียบร้อยแล้วค่ะ')  
                 
             if recog in 'สวัสดี':
-                print('\tสวัสดีค่ะมือะไรให้ช่วยมั้ยคะ')
-                speak('สวัสดีค่ะมือะไรให้ช่วยมั้ยคะ')  
+                speak('สวัสดีค่ะมือะไรให้ช่วยมั้ยคะ')
+                print('\tสวัสดีค่ะมือะไรให้ช่วยมั้ยคะ')  
                 
             if recog in SpeakTime :
                 thisTime = time.strftime("\tขณะนี้เวลา "+"%H"+" นาฬิกา "+"%M"+" นาที "+"%S"+" วินาทีค่ะ")
-                print(thisTime)
                 speak(thisTime)
+                print(thisTime)
                 
             if recog in AllOff :
                 Pinindex = 0
@@ -201,7 +233,7 @@ while 1:
                     GPIO.output(relaypin[Pinindex], 0)
                     Pinindex += 1
                 speak('ปิดทุกอย่างเรียบร้อยแล้วค่ะ')
-
+              
         except sr.UnknownValueError:
             #speak("กรุณาพูดใหม่อีกครั้ง")
             GPIO.output(listenStatus, 0) 
@@ -210,7 +242,6 @@ while 1:
         except sr.RequestError as e:
             GPIO.output(listenStatus, 0) 
             speak("การเชื่อมต่อล้มเหลว; {0}".format(e))
-            sleep(0.3)
         
     else :  
         face_loop = True    
@@ -263,8 +294,8 @@ while 1:
                 # Print the numer of faces trained and end program
                 print("\n\t[INFO] {0} faces trained. Finish".format(len(np.unique(ids))))
 
-                firebaseTrain_ID = firebase.get("/Train","TrainID")
-                firebaseTrain = firebase.get("/Train","TrainStatus")
+                firebaseTrain = 'stop'
+                firebase.put("/Train","/TrainStatus",firebaseTrain)
 
             else :
                 ret, img = cam.read()
@@ -297,7 +328,9 @@ while 1:
                 cv2.namedWindow('camera1',cv2.WINDOW_NORMAL)
                 cv2.imshow('camera1',img)
 
-                cv2.waitKey(10)
+                k = cv2.waitKey(10) & 0xff # Press 'ESC' for exiting video
+                if k == 27:
+                    break                   
                 if GPIO.input(PIR) == 0 :
                     face_loop = False
 
@@ -323,7 +356,6 @@ while 1:
                 if counter == 200:
                     ID_Check = 0
                     counter = 0
-
                     
                     firebaseTrain_ID = firebase.get("/Train","TrainID")
                     firebaseTrain = firebase.get("/Train","TrainStatus")
@@ -334,6 +366,34 @@ while 1:
                         #ถ้าชื่อมีการเปลี่ยนแปลงให้แสดงชื่อที่เปลี่ยนแปลงที่ Terminal 
                         print('\t\tChang Names To :',names) 
                         prename = names
+
+                    # รับค่าคำสั่งเสียงจาก firebase
+                    command_on = firebase.get('/voice command','command on')
+                    command_off = firebase.get('/voice command','command off')
+
+                    Voice_command_on = []
+                    Voice_command_off = []
+
+                    j = 0
+                    for i in command_on:
+                        j += 1
+                        indexOn =  'relay' + str(j)
+                        Voice_command_on.append(command_on[indexOn])                   
+                    j = 0
+                    for i in command_off:
+                        j += 1
+                        indexOff =  'relay' + str(j)
+                        Voice_command_off.append(command_off[indexOff])
+                    
+                    if Pre_Voice_command_on != Voice_command_on :
+                        print('\n\n')
+                        print('\tเปลี่ยนคำสั่งเสียง การเปิด เป็น ==>' ,Voice_command_on)
+                    if Pre_Voice_command_off != Voice_command_off :
+                        print('\tเปลี่ยนคำสั่งเสียง การปิด เป็น ==>' ,Voice_command_off)
+                        print('\n\n')       
+                    
+                    Pre_Voice_command_on = Voice_command_on
+                    Pre_Voice_command_off = Voice_command_off
                     
                 ID_Check = id
 
